@@ -1,6 +1,8 @@
 import axios from 'axios';
 
-const API_BASE = '/api';
+const API_BASE = import.meta.env.PROD
+  ? 'https://fiber-management-system-2.onrender.com/api'
+  : '/api';
 
 const api = axios.create({
   baseURL: API_BASE,
