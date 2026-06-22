@@ -1,0 +1,87 @@
+import axios from 'axios';
+
+const API_BASE = '/api';
+
+const api = axios.create({
+  baseURL: API_BASE,
+  headers: {
+    'Content-Type': 'application/json',
+  },
+});
+
+// Add auth token to requests
+api.interceptors.request.use((config) => {
+  const token = localStorage.getItem('token');
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+  return config;
+});
+
+// Handle 401 responses
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response?.status === 401) {
+      localStorage.removeItem('token');
+      localStorage.removeItem('username');
+      localStorage.removeItem('role');
+      window.location.href = '/login';
+    }
+    return Promise.reject(error);
+  }
+);
+
+// Auth
+export const authApi = {
+  login: (username: string, password: string) =>
+    api.post('/login', { username, password }),
+  register: (username: string, password: string, role: string = 'user') =>
+    api.post('/register', { username, password, role }),
+  getMe: () => api.get('/me'),
+};
+
+// Dashboard
+export const dashboardApi = {
+  get: () => api.get('/dashboard'),
+};
+
+// Ports
+export const portsApi = {
+  getAll: (params?: { status?: string; search?: string }) =>
+    api.get('/ports', { params }),
+  getById: (id: number) => api.get(`/ports/${id}`),
+  create: (data: Record<string, unknown>) => api.post('/ports', data),
+  update: (id: number, data: Record<string, unknown>) => api.put(`/ports/${id}`, data),
+  delete: (id: number) => api.delete(`/ports/${id}`),
+  export: () => api.get('/ports/export', { responseType: 'blob' }),
+};
+
+// DDF
+export const ddfApi = {
+  getAll: (params?: { status?: string; search?: string }) =>
+    api.get('/ddf', { params }),
+  getById: (id: number) => api.get(`/ddf/${id}`),
+  create: (data: Record<string, unknown>) => api.post('/ddf', data),
+  update: (id: number, data: Record<string, unknown>) => api.put(`/ddf/${id}`, data),
+  delete: (id: number) => api.delete(`/ddf/${id}`),
+  export: () => api.get('/ddf/export', { responseType: 'blob' }),
+};
+
+// OFC Routes
+export const ofcApi = {
+  getAll: (params?: { status?: string; search?: string }) =>
+    api.get('/ofc', { params }),
+  getById: (id: number) => api.get(`/ofc/${id}`),
+  create: (data: Record<string, unknown>) => api.post('/ofc', data),
+  update: (id: number, data: Record<string, unknown>) => api.put(`/ofc/${id}`, data),
+  delete: (id: number) => api.delete(`/ofc/${id}`),
+  export: () => api.get('/ofc/export', { responseType: 'blob' }),
+};
+
+// Search
+export const searchApi = {
+  search: (q: string) => api.get('/search', { params: { q } }),
+};
+
+export default api;
