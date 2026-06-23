@@ -127,8 +127,11 @@ export default function OFCPage({ darkMode, isAdmin }: OFCPageProps) {
     if (!file) return;
     try {
       const response = await ofcApi.import(file);
-      toast.success(`Imported ${response.data.imported} routes`);
-      if (response.data.errors?.length) toast.error(`${response.data.errors.length} rows had errors`);
+      toast.success(`Imported ${response.data.imported} records`);
+      if (response.data.errors?.length) {
+        response.data.errors.slice(0, 3).forEach((err: string) => toast.error(err, { duration: 5000 }));
+        if (response.data.errors.length > 3) toast.error(`...and ${response.data.errors.length - 3} more errors`);
+      }
       fetchRoutes();
     } catch { toast.error('Import failed'); }
     if (importRef.current) importRef.current.value = '';
