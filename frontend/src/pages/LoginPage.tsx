@@ -19,7 +19,7 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
     setError('');
 
     try {
-      const response = await authApi.login(username, password);
+      const response = await authApi.login(username.trim(), password.trim());
       const { access_token, username: user, role } = response.data;
       onLogin(access_token, user, role);
       toast.success(`Welcome back, ${user}!`);
