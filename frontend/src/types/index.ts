@@ -42,6 +42,22 @@ export interface OFCRoute {
   status: string;
   remarks?: string;
   created_at?: string;
+  updated_at?: string;
+  fiber_cores: FiberCore[];
+}
+
+export interface FiberCore {
+  id: number;
+  route_id: number;
+  fiber_number: number;
+  color: string;
+  status: string;
+  from_to?: string;
+  connected_equipment?: string;
+  port?: string;
+  remarks?: string;
+  created_at?: string;
+  updated_at?: string;
 }
 
 export interface DashboardData {
@@ -50,6 +66,9 @@ export interface DashboardData {
   ddf_connections: number;
   ofc_routes: number;
   utilization_percentage: number;
+  total_fibers: number;
+  used_fibers: number;
+  spare_fibers: number;
   recent_activities: Activity[];
 }
 

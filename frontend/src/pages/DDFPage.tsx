@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react';
-import { Plus, Search, Download, Edit, Trash2 } from 'lucide-react';
+import { useEffect, useState, useRef } from 'react';
+import { Plus, Search, Download, Upload, Edit, Trash2 } from 'lucide-react';
 import { ddfApi } from '../services/api';
 import { DDFRecord } from '../types';
 import Modal from '../components/Modal';
@@ -22,6 +22,7 @@ export default function DDFPage({ darkMode, isAdmin }: DDFPageProps) {
     ddf_name: '', ddf_port: '', connected_to: '',
     connection_type: '', status: 'active', remarks: ''
   });
+  const importRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     fetchRecords();
@@ -100,6 +101,18 @@ export default function DDFPage({ darkMode, isAdmin }: DDFPageProps) {
     }
   };
 
+  const handleImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      const response = await ddfApi.import(file);
+      toast.success(`Imported ${response.data.imported} DDF records`);
+      if (response.data.errors?.length) toast.error(`${response.data.errors.length} rows had errors`);
+      fetchRecords();
+    } catch { toast.error('Import failed'); }
+    if (importRef.current) importRef.current.value = '';
+  };
+
   const resetForm = () => {
     setEditingRecord(null);
     setForm({ ddf_name: '', ddf_port: '', connected_to: '', connection_type: '', status: 'active', remarks: '' });
@@ -119,9 +132,15 @@ export default function DDFPage({ darkMode, isAdmin }: DDFPageProps) {
             <Download className="w-4 h-4" /> Export
           </button>
           {isAdmin && (
-            <button onClick={() => { resetForm(); setShowModal(true); }} className="flex items-center gap-2 px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700">
-              <Plus className="w-4 h-4" /> Add DDF Record
-            </button>
+            <>
+              <input type="file" ref={importRef} accept=".xlsx,.csv" onChange={handleImport} className="hidden" />
+              <button onClick={() => importRef.current?.click()} className="flex items-center gap-2 px-3 py-2 text-sm border border-green-300 text-green-700 rounded-lg hover:bg-green-50 dark:border-green-600 dark:text-green-400 dark:hover:bg-green-900/30">
+                <Upload className="w-4 h-4" /> Import
+              </button>
+              <button onClick={() => { resetForm(); setShowModal(true); }} className="flex items-center gap-2 px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+                <Plus className="w-4 h-4" /> Add DDF Record
+              </button>
+            </>
           )}
         </div>
       </div>

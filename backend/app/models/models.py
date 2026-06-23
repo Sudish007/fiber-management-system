@@ -1,4 +1,5 @@
-from sqlalchemy import Column, Integer, String, Text, Numeric, DateTime, func
+from sqlalchemy import Column, Integer, String, Text, Numeric, DateTime, ForeignKey, func
+from sqlalchemy.orm import relationship
 from ..database import Base
 
 
@@ -27,6 +28,7 @@ class Port(Base):
     status = Column(String(20), default="active")
     remarks = Column(Text)
     created_at = Column(DateTime, server_default=func.now())
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
 
 
 class DDFLog(Base):
@@ -40,6 +42,7 @@ class DDFLog(Base):
     status = Column(String(20), default="active")
     remarks = Column(Text)
     created_at = Column(DateTime, server_default=func.now())
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
 
 
 class OFCRoute(Base):
@@ -55,6 +58,28 @@ class OFCRoute(Base):
     status = Column(String(20), default="active")
     remarks = Column(Text)
     created_at = Column(DateTime, server_default=func.now())
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+
+    # Relationship to fiber cores
+    fiber_cores = relationship("FiberCore", back_populates="route", cascade="all, delete-orphan")
+
+
+class FiberCore(Base):
+    __tablename__ = "fiber_cores"
+
+    id = Column(Integer, primary_key=True, index=True)
+    route_id = Column(Integer, ForeignKey("ofc_routes.id", ondelete="CASCADE"), nullable=False)
+    fiber_number = Column(Integer, nullable=False)
+    color = Column(String(30), nullable=False)
+    status = Column(String(20), default="spare")  # spare, used, faulty
+    from_to = Column(String(200))  # e.g., "OLT-A → ODF-1"
+    connected_equipment = Column(String(100))
+    port = Column(String(50))
+    remarks = Column(Text)
+    created_at = Column(DateTime, server_default=func.now())
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+
+    route = relationship("OFCRoute", back_populates="fiber_cores")
 
 
 class AuditLog(Base):
