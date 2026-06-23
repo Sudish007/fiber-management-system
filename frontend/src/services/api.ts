@@ -57,6 +57,11 @@ export const portsApi = {
   update: (id: number, data: Record<string, unknown>) => api.put(`/ports/${id}`, data),
   delete: (id: number) => api.delete(`/ports/${id}`),
   export: () => api.get('/ports/export', { responseType: 'blob' }),
+  import: (file: File) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    return api.post('/ports/import', formData, { headers: { 'Content-Type': 'multipart/form-data' } });
+  },
 };
 
 // DDF
@@ -68,6 +73,11 @@ export const ddfApi = {
   update: (id: number, data: Record<string, unknown>) => api.put(`/ddf/${id}`, data),
   delete: (id: number) => api.delete(`/ddf/${id}`),
   export: () => api.get('/ddf/export', { responseType: 'blob' }),
+  import: (file: File) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    return api.post('/ddf/import', formData, { headers: { 'Content-Type': 'multipart/form-data' } });
+  },
 };
 
 // OFC Routes
@@ -79,6 +89,16 @@ export const ofcApi = {
   update: (id: number, data: Record<string, unknown>) => api.put(`/ofc/${id}`, data),
   delete: (id: number) => api.delete(`/ofc/${id}`),
   export: () => api.get('/ofc/export', { responseType: 'blob' }),
+  import: (file: File) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    return api.post('/ofc/import', formData, { headers: { 'Content-Type': 'multipart/form-data' } });
+  },
+  // Fiber cores
+  getFibers: (routeId: number) => api.get(`/ofc/${routeId}/fibers`),
+  createFiber: (routeId: number, data: Record<string, unknown>) => api.post(`/ofc/${routeId}/fibers`, data),
+  updateFiber: (routeId: number, fiberId: number, data: Record<string, unknown>) => api.put(`/ofc/${routeId}/fibers/${fiberId}`, data),
+  deleteFiber: (routeId: number, fiberId: number) => api.delete(`/ofc/${routeId}/fibers/${fiberId}`),
 };
 
 // Search

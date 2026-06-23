@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react';
-import { Plus, Search, Download, Edit, Trash2 } from 'lucide-react';
+import { useEffect, useState, useRef } from 'react';
+import { Plus, Search, Download, Upload, Edit, Trash2 } from 'lucide-react';
 import { portsApi } from '../services/api';
 import { Port } from '../types';
 import Modal from '../components/Modal';
@@ -23,6 +23,7 @@ export default function PortsPage({ darkMode, isAdmin }: PortsPageProps) {
     port_number: '', port_type: '', fibre_tag: '',
     ddf_name: '', ddf_port: '', status: 'active', remarks: ''
   });
+  const importRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     fetchPorts();
@@ -105,6 +106,18 @@ export default function PortsPage({ darkMode, isAdmin }: PortsPageProps) {
     }
   };
 
+  const handleImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      const response = await portsApi.import(file);
+      toast.success(`Imported ${response.data.imported} ports`);
+      if (response.data.errors?.length) toast.error(`${response.data.errors.length} rows had errors`);
+      fetchPorts();
+    } catch { toast.error('Import failed'); }
+    if (importRef.current) importRef.current.value = '';
+  };
+
   const resetForm = () => {
     setEditingPort(null);
     setForm({
@@ -134,9 +147,15 @@ export default function PortsPage({ darkMode, isAdmin }: PortsPageProps) {
             <Download className="w-4 h-4" /> Export
           </button>
           {isAdmin && (
-            <button onClick={openCreate} className="flex items-center gap-2 px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700">
-              <Plus className="w-4 h-4" /> Add Port
-            </button>
+            <>
+              <input type="file" ref={importRef} accept=".xlsx,.csv" onChange={handleImport} className="hidden" />
+              <button onClick={() => importRef.current?.click()} className="flex items-center gap-2 px-3 py-2 text-sm border border-green-300 text-green-700 rounded-lg hover:bg-green-50 dark:border-green-600 dark:text-green-400 dark:hover:bg-green-900/30">
+                <Upload className="w-4 h-4" /> Import
+              </button>
+              <button onClick={openCreate} className="flex items-center gap-2 px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+                <Plus className="w-4 h-4" /> Add Port
+              </button>
+            </>
           )}
         </div>
       </div>

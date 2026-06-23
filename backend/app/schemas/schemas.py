@@ -68,6 +68,7 @@ class PortUpdate(BaseModel):
 class PortResponse(PortBase):
     id: int
     created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
 
     class Config:
         from_attributes = True
@@ -99,6 +100,42 @@ class DDFUpdate(BaseModel):
 class DDFResponse(DDFBase):
     id: int
     created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
+
+
+# ============ Fiber Core Schemas ============
+class FiberCoreBase(BaseModel):
+    fiber_number: int
+    color: str = Field(..., max_length=30)
+    status: Optional[str] = "spare"
+    from_to: Optional[str] = None
+    connected_equipment: Optional[str] = None
+    port: Optional[str] = None
+    remarks: Optional[str] = None
+
+
+class FiberCoreCreate(FiberCoreBase):
+    pass
+
+
+class FiberCoreUpdate(BaseModel):
+    fiber_number: Optional[int] = None
+    color: Optional[str] = None
+    status: Optional[str] = None
+    from_to: Optional[str] = None
+    connected_equipment: Optional[str] = None
+    port: Optional[str] = None
+    remarks: Optional[str] = None
+
+
+class FiberCoreResponse(FiberCoreBase):
+    id: int
+    route_id: int
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
 
     class Config:
         from_attributes = True
@@ -134,6 +171,8 @@ class OFCRouteUpdate(BaseModel):
 class OFCRouteResponse(OFCRouteBase):
     id: int
     created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+    fiber_cores: list[FiberCoreResponse] = []
 
     class Config:
         from_attributes = True
@@ -146,6 +185,9 @@ class DashboardResponse(BaseModel):
     ddf_connections: int
     ofc_routes: int
     utilization_percentage: float
+    total_fibers: int
+    used_fibers: int
+    spare_fibers: int
     recent_activities: list
 
 
@@ -161,3 +203,9 @@ class AuditLogResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+# ============ Import Response ============
+class ImportResponse(BaseModel):
+    imported: int
+    errors: list[str] = []

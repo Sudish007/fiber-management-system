@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status, Query
+from fastapi import APIRouter, Depends, HTTPException, status, Query, UploadFile, File
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 from sqlalchemy import or_
@@ -7,7 +7,7 @@ import io
 import openpyxl
 from ..database import get_db
 from ..models.models import Port, AuditLog
-from ..schemas.schemas import PortCreate, PortUpdate, PortResponse
+from ..schemas.schemas import PortCreate, PortUpdate, PortResponse, ImportResponse
 from ..auth import get_current_user, require_admin
 
 router = APIRouter(prefix="/api/ports", tags=["Ports"])
@@ -73,6 +73,60 @@ def export_ports(
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         headers={"Content-Disposition": "attachment; filename=ports_export.xlsx"}
     )
+
+
+@router.post("/import", response_model=ImportResponse)
+async def import_ports(
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    current_user=Depends(require_admin)
+):
+    if not file.filename.endswith(('.xlsx', '.csv')):
+        raise HTTPException(status_code=400, detail="Only .xlsx or .csv files are accepted")
+
+    content = await file.read()
+    wb = openpyxl.load_workbook(io.BytesIO(content))
+    ws = wb.active
+
+    imported = 0
+    errors = []
+    rows = list(ws.iter_rows(min_row=2, values_only=True))
+
+    for i, row in enumerate(rows, start=2):
+        try:
+            if not row or not row[0]:
+                continue
+            # Skip ID column (index 0), start from Equipment Name (index 1)
+            col_offset = 1 if len(row) > 10 else 0
+            port = Port(
+                equipment_name=str(row[col_offset]) if row[col_offset] else "",
+                equipment_ip=str(row[col_offset + 1]) if row[col_offset + 1] else "",
+                equipment_type=str(row[col_offset + 2]) if row[col_offset + 2] else "",
+                port_number=str(row[col_offset + 3]) if row[col_offset + 3] else "",
+                port_type=str(row[col_offset + 4]) if row[col_offset + 4] else "",
+                fibre_tag=str(row[col_offset + 5]) if len(row) > col_offset + 5 and row[col_offset + 5] else None,
+                ddf_name=str(row[col_offset + 6]) if len(row) > col_offset + 6 and row[col_offset + 6] else None,
+                ddf_port=str(row[col_offset + 7]) if len(row) > col_offset + 7 and row[col_offset + 7] else None,
+                status=str(row[col_offset + 8]) if len(row) > col_offset + 8 and row[col_offset + 8] else "active",
+                remarks=str(row[col_offset + 9]) if len(row) > col_offset + 9 and row[col_offset + 9] else None,
+            )
+            db.add(port)
+            imported += 1
+        except Exception as e:
+            errors.append(f"Row {i}: {str(e)}")
+
+    db.commit()
+
+    audit = AuditLog(
+        user_id=current_user.id,
+        action="IMPORT",
+        entity_type="port",
+        details=f"Imported {imported} ports from {file.filename}"
+    )
+    db.add(audit)
+    db.commit()
+
+    return ImportResponse(imported=imported, errors=errors)
 
 
 @router.get("/{port_id}", response_model=PortResponse)
