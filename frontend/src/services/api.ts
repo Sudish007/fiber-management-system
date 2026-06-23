@@ -20,10 +20,16 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
-// Handle 401 responses
+// Handle 401 responses and backend cold starts
 api.interceptors.response.use(
   (response) => response,
-  (error) => {
+  async (error) => {
+    // Backend is waking up (cold start on Render free tier)
+    if (!error.response && error.code === 'ERR_NETWORK') {
+      // Retry after 3 seconds
+      await new Promise(resolve => setTimeout(resolve, 3000));
+      return api.request(error.config);
+    }
     if (error.response?.status === 401 && !error.config?.url?.includes('/login')) {
       localStorage.removeItem('token');
       localStorage.removeItem('username');

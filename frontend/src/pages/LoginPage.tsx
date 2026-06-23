@@ -12,6 +12,22 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [backendReady, setBackendReady] = useState(true);
+
+  // Ping backend on load to wake it up
+  useState(() => {
+    authApi.login('', '').catch((err) => {
+      if (!err.response) {
+        setBackendReady(false);
+        // Retry every 3s until backend responds
+        const interval = setInterval(() => {
+          fetch(import.meta.env.PROD ? 'https://fiber-management-system-2.onrender.com/' : '/api/../')
+            .then(() => { setBackendReady(true); clearInterval(interval); })
+            .catch(() => {});
+        }, 3000);
+      }
+    });
+  });
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -98,6 +114,15 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
             <p className="text-xs text-blue-700">Admin: admin / admin123</p>
             <p className="text-xs text-blue-700">User: operator / operator123</p>
           </div>
+
+          {!backendReady && (
+            <div className="mt-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+              <div className="flex items-center gap-2">
+                <div className="animate-spin rounded-full h-4 w-4 border-2 border-yellow-600 border-t-transparent"></div>
+                <p className="text-xs text-yellow-800 font-medium">Server is waking up... please wait 30 seconds</p>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>
