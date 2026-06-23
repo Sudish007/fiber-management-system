@@ -162,10 +162,25 @@ async def import_ofc(
         except Exception as e:
             errors.append(f"Routes Row {i}: {str(e)}")
 
+    # Commit routes first so fiber cores can reference them
+    db.commit()
+
+    # Refresh route map with committed IDs
+    for name in list(route_name_map.keys()):
+        route_obj = db.query(OFCRoute).filter(OFCRoute.route_name == name).first()
+        if route_obj:
+            route_name_map[name] = route_obj
+
     # Sheet 2: Fiber Cores (if exists)
-    if "Fiber Cores" in wb.sheetnames:
-        ws2 = wb["Fiber Cores"]
-        fiber_rows = list(ws2.iter_rows(min_row=2, values_only=True))
+    # Try multiple possible sheet names
+    fiber_sheet = None
+    for name in wb.sheetnames:
+        if 'fiber' in name.lower() or 'core' in name.lower():
+            fiber_sheet = wb[name]
+            break
+
+    if fiber_sheet:
+        fiber_rows = list(fiber_sheet.iter_rows(min_row=2, values_only=True))
 
         for i, row in enumerate(fiber_rows, start=2):
             try:
@@ -183,7 +198,7 @@ async def import_ofc(
                 if not route_name:
                     continue
 
-                # Find the route
+                # Find the route - first from map, then from DB
                 route = route_name_map.get(route_name)
                 if not route:
                     route = db.query(OFCRoute).filter(OFCRoute.route_name == route_name).first()
@@ -196,7 +211,7 @@ async def import_ofc(
                 fiber_status = v[3] if len(v) > 3 and v[3] else "spare"
                 from_to = v[4] if len(v) > 4 and v[4] else None
                 connected_equipment = v[5] if len(v) > 5 and v[5] else None
-                port = v[6] if len(v) > 6 and v[6] else None
+                port_val = v[6] if len(v) > 6 and v[6] else None
                 remarks = v[7] if len(v) > 7 and v[7] else None
 
                 # Check if fiber already exists for this route + number
@@ -210,7 +225,7 @@ async def import_ofc(
                     existing_fiber.status = fiber_status
                     existing_fiber.from_to = from_to
                     existing_fiber.connected_equipment = connected_equipment
-                    existing_fiber.port = port
+                    existing_fiber.port = port_val
                     existing_fiber.remarks = remarks
                 else:
                     db_fiber = FiberCore(
@@ -220,7 +235,7 @@ async def import_ofc(
                         status=fiber_status,
                         from_to=from_to,
                         connected_equipment=connected_equipment,
-                        port=port,
+                        port=port_val,
                         remarks=remarks,
                     )
                     db.add(db_fiber)
