@@ -108,9 +108,29 @@ async def import_ofc(
     imported = 0
     errors = []
 
+    # Find the routes sheet (first sheet, or one with "route" in name)
+    routes_sheet = None
+    fiber_sheet = None
+    for name in wb.sheetnames:
+        lower_name = name.lower()
+        if 'fiber' in lower_name or 'core' in lower_name:
+            fiber_sheet = wb[name]
+        elif 'route' in lower_name or 'ofc' in lower_name:
+            routes_sheet = wb[name]
+
+    # If no specific routes sheet found, use first sheet that's NOT fiber cores
+    if not routes_sheet:
+        for name in wb.sheetnames:
+            lower_name = name.lower()
+            if 'fiber' not in lower_name and 'core' not in lower_name:
+                routes_sheet = wb[name]
+                break
+
+    if not routes_sheet:
+        routes_sheet = wb.worksheets[0]
+
     # Sheet 1: OFC Routes
-    ws = wb.active
-    rows = list(ws.iter_rows(min_row=2, values_only=True))
+    rows = list(routes_sheet.iter_rows(min_row=2, values_only=True))
 
     route_name_map = {}  # map route_name -> route obj for fiber core import
 
@@ -172,13 +192,6 @@ async def import_ofc(
             route_name_map[name] = route_obj
 
     # Sheet 2: Fiber Cores (if exists)
-    # Try multiple possible sheet names
-    fiber_sheet = None
-    for name in wb.sheetnames:
-        if 'fiber' in name.lower() or 'core' in name.lower():
-            fiber_sheet = wb[name]
-            break
-
     if fiber_sheet:
         fiber_rows = list(fiber_sheet.iter_rows(min_row=2, values_only=True))
 
