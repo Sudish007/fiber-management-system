@@ -11,10 +11,12 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
+    setError('');
 
     try {
       const response = await authApi.login(username, password);
@@ -23,7 +25,7 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
       toast.success(`Welcome back, ${user}!`);
     } catch (error: unknown) {
       const err = error as { response?: { data?: { detail?: string } } };
-      toast.error(err.response?.data?.detail || 'Login failed');
+      setError(err.response?.data?.detail || 'Wrong username or password');
     } finally {
       setLoading(false);
     }
@@ -83,6 +85,12 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
             >
               {loading ? 'Signing in...' : 'Sign In'}
             </button>
+
+            {error && (
+              <p className="text-sm text-red-600 text-center mt-2 bg-red-50 py-2 rounded-lg">
+                {error}
+              </p>
+            )}
           </form>
 
           <div className="mt-6 p-4 bg-blue-50 rounded-lg">
