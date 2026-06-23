@@ -104,38 +104,145 @@ async def import_ofc(
 
     content = await file.read()
     wb = openpyxl.load_workbook(io.BytesIO(content))
-    ws = wb.active
 
     imported = 0
     errors = []
+
+    # Sheet 1: OFC Routes
+    ws = wb.active
     rows = list(ws.iter_rows(min_row=2, values_only=True))
+
+    route_name_map = {}  # map route_name -> route obj for fiber core import
 
     for i, row in enumerate(rows, start=2):
         try:
-            if not row[0]:
+            if not row or all(cell is None or str(cell).strip() == '' for cell in row):
                 continue
-            route = OFCRoute(
-                route_name=str(row[0]) if row[0] else "",
-                start_location=str(row[1]) if row[1] else "",
-                end_location=str(row[2]) if row[2] else "",
-                route_length=float(row[3]) if row[3] else None,
-                fiber_count=int(row[4]) if row[4] else None,
-                core_utilization=int(row[5]) if row[5] else None,
-                status=str(row[6]) if row[6] else "active",
-                remarks=str(row[7]) if len(row) > 7 and row[7] else None,
-            )
-            db.add(route)
+            # Find first non-empty cell to detect offset
+            values = [str(cell).strip() if cell is not None else '' for cell in row]
+            # Skip empty leading columns
+            start = 0
+            while start < len(values) and values[start] == '':
+                start += 1
+            if start >= len(values):
+                continue
+
+            v = values[start:]
+            route_name = v[0] if len(v) > 0 else ""
+            if not route_name:
+                continue
+
+            # Check if route already exists
+            existing = db.query(OFCRoute).filter(OFCRoute.route_name == route_name).first()
+            if existing:
+                # Update existing
+                existing.start_location = v[1] if len(v) > 1 and v[1] else existing.start_location
+                existing.end_location = v[2] if len(v) > 2 and v[2] else existing.end_location
+                existing.route_length = float(v[3]) if len(v) > 3 and v[3] else existing.route_length
+                existing.fiber_count = int(float(v[4])) if len(v) > 4 and v[4] else existing.fiber_count
+                existing.core_utilization = int(float(v[5])) if len(v) > 5 and v[5] else existing.core_utilization
+                existing.status = v[6] if len(v) > 6 and v[6] else existing.status
+                existing.remarks = v[7] if len(v) > 7 and v[7] else existing.remarks
+                route_name_map[route_name] = existing
+            else:
+                route = OFCRoute(
+                    route_name=route_name,
+                    start_location=v[1] if len(v) > 1 else "",
+                    end_location=v[2] if len(v) > 2 else "",
+                    route_length=float(v[3]) if len(v) > 3 and v[3] else None,
+                    fiber_count=int(float(v[4])) if len(v) > 4 and v[4] else None,
+                    core_utilization=int(float(v[5])) if len(v) > 5 and v[5] else None,
+                    status=v[6] if len(v) > 6 and v[6] else "active",
+                    remarks=v[7] if len(v) > 7 and v[7] else None,
+                )
+                db.add(route)
+                db.flush()
+                route_name_map[route_name] = route
             imported += 1
         except Exception as e:
-            errors.append(f"Row {i}: {str(e)}")
+            errors.append(f"Routes Row {i}: {str(e)}")
 
+    # Sheet 2: Fiber Cores (if exists)
+    if "Fiber Cores" in wb.sheetnames:
+        ws2 = wb["Fiber Cores"]
+        fiber_rows = list(ws2.iter_rows(min_row=2, values_only=True))
+
+        for i, row in enumerate(fiber_rows, start=2):
+            try:
+                if not row or all(cell is None or str(cell).strip() == '' for cell in row):
+                    continue
+                values = [str(cell).strip() if cell is not None else '' for cell in row]
+                start = 0
+                while start < len(values) and values[start] == '':
+                    start += 1
+                if start >= len(values):
+                    continue
+                v = values[start:]
+
+                route_name = v[0] if len(v) > 0 else ""
+                if not route_name:
+                    continue
+
+                # Find the route
+                route = route_name_map.get(route_name)
+                if not route:
+                    route = db.query(OFCRoute).filter(OFCRoute.route_name == route_name).first()
+                if not route:
+                    errors.append(f"Fiber Row {i}: Route '{route_name}' not found")
+                    continue
+
+                fiber_number = int(float(v[1])) if len(v) > 1 and v[1] else 1
+                color = v[2] if len(v) > 2 and v[2] else "Blue"
+                fiber_status = v[3] if len(v) > 3 and v[3] else "spare"
+                from_to = v[4] if len(v) > 4 and v[4] else None
+                connected_equipment = v[5] if len(v) > 5 and v[5] else None
+                port = v[6] if len(v) > 6 and v[6] else None
+                remarks = v[7] if len(v) > 7 and v[7] else None
+
+                # Check if fiber already exists for this route + number
+                existing_fiber = db.query(FiberCore).filter(
+                    FiberCore.route_id == route.id,
+                    FiberCore.fiber_number == fiber_number
+                ).first()
+
+                if existing_fiber:
+                    existing_fiber.color = color
+                    existing_fiber.status = fiber_status
+                    existing_fiber.from_to = from_to
+                    existing_fiber.connected_equipment = connected_equipment
+                    existing_fiber.port = port
+                    existing_fiber.remarks = remarks
+                else:
+                    db_fiber = FiberCore(
+                        route_id=route.id,
+                        fiber_number=fiber_number,
+                        color=color,
+                        status=fiber_status,
+                        from_to=from_to,
+                        connected_equipment=connected_equipment,
+                        port=port,
+                        remarks=remarks,
+                    )
+                    db.add(db_fiber)
+                imported += 1
+            except Exception as e:
+                errors.append(f"Fiber Row {i}: {str(e)}")
+
+    db.commit()
+
+    # Update utilization for all affected routes
+    for route in route_name_map.values():
+        used_count = db.query(FiberCore).filter(FiberCore.route_id == route.id, FiberCore.status == "used").count()
+        total_count = db.query(FiberCore).filter(FiberCore.route_id == route.id).count()
+        route.core_utilization = int((used_count / total_count) * 100) if total_count > 0 else 0
+        route.fiber_count = total_count
     db.commit()
 
     audit = AuditLog(
         user_id=current_user.id,
         action="IMPORT",
         entity_type="ofc_route",
-        details=f"Imported {imported} OFC routes from {file.filename}"
+        details=f"Imported {imported} records from {file.filename}"
     )
     db.add(audit)
     db.commit()
