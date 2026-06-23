@@ -338,7 +338,7 @@ export default function OFCPage({ darkMode, isAdmin }: OFCPageProps) {
                                             </div>
                                           </td>
                                           <td className="px-2 py-2"><StatusBadge status={fiber.status} /></td>
-                                          <td className={`px-2 py-2 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>{fiber.from_to || '-'}</td>
+                                          <td className={`px-2 py-2 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>{fiber.from_to || 'Not Assigned'}</td>
                                           <td className={`px-2 py-2 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>{fiber.connected_equipment || '-'}</td>
                                           <td className={`px-2 py-2 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>{fiber.port || '-'}</td>
                                           <td className={`px-2 py-2 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>{fiber.remarks || '-'}</td>
